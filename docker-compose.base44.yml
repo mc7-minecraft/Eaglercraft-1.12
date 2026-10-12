@@ -1,0 +1,25 @@
+# Base44 sandbox/dev compose for this static site.
+# The repo is a single index.html with all logic in the browser (no backend,
+# no database, no build step), so it is served directly from the cloned source
+# by nginx with the repo bind-mounted — edits are picked up without a rebuild.
+services:
+  web:
+    image: nginx:alpine
+    restart: on-failure
+    # NB: nginx/nginx.conf overrides "user nginx;" with "user root;" because the
+    # sandbox repo root is mode 700 (root-only) and unprivileged workers cannot
+    # traverse the bind mount. Dev-only; see that file.
+    ports:
+      - "3000:80"
+    volumes:
+      - ./:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      # Probes the real page, not just an open port. 127.0.0.1 (not localhost)
+      # because nginx listens on IPv4 only and busybox wget would otherwise try ::1.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ | grep -q 'PLAY REGULAR' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
